@@ -1,0 +1,31 @@
+name: sw.js のキャッシュバージョンを自動更新
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      # これらのファイルが更新された時だけ走る
+      - 'app.js'
+      - 'style.css'
+      - 'index.html'
+      - 'sw.js'
+
+jobs:
+  update-cache-version:
+    runs-on: ubuntu-latest
+    steps:
+      - name: リポジトリをチェックアウト
+        uses: actions/checkout@v4
+
+      - name: sw.js の CACHE_NAME を現在日時で書き換え
+        run: |
+          VERSION="mokuho-$(date +%Y%m%d-%H%M%S)"
+          sed -i "s/const CACHE_NAME = \".*\"/const CACHE_NAME = \"${VERSION}\"/" sw.js
+          echo "✅ CACHE_NAME を ${VERSION} に更新"
+
+      - name: 変更を自動コミット
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "chore: sw.js キャッシュバージョンを自動更新"
+          file_pattern: sw.js

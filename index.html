@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#5B9BD5">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="ハレタス">
+  <meta name="description" content="タスクを完了するほど空が晴れていくタスク管理アプリ">
+  <title>ハレタス</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="stylesheet" href="style.css?v=20260625b">
+  <link rel="apple-touch-icon" href="assets/icons/icon-192.png">
+</head>
+<body>
+
+  <!-- ヘッダー -->
+  <header class="app-header">
+    <div class="header-inner">
+      <h1 class="app-title">☀️ ハレタス</h1>
+      <!-- Toast通知エリア（ヘッダー内中央） -->
+      <div id="toast-container" aria-live="polite" aria-atomic="true"></div>
+      <div class="header-actions">
+        <button class="icon-btn" id="btn-search" aria-label="検索">🔍</button>
+        <button class="icon-btn" id="btn-stats" aria-label="統計">📊</button>
+        <button class="icon-btn" id="btn-settings" aria-label="データ管理">⚙️</button>
+      </div>
+    </div>
+  </header>
+
+  <!-- タブナビゲーション -->
+  <nav class="tab-nav" role="tablist">
+    <button class="tab-btn active" data-tab="today" role="tab" aria-selected="true">
+      <span class="tab-icon">🌤️</span>
+      <span class="tab-label">今日</span>
+    </button>
+    <button class="tab-btn" data-tab="leftover" role="tab" aria-selected="false">
+      <span class="tab-icon">🌧️</span>
+      <span class="tab-label">やり残し</span>
+    </button>
+    <button class="tab-btn" data-tab="future" role="tab" aria-selected="false">
+      <span class="tab-icon">📅</span>
+      <span class="tab-label">明日以降</span>
+    </button>
+    <button class="tab-btn" data-tab="daily" role="tab" aria-selected="false">
+      <span class="tab-icon">🔄</span>
+      <span class="tab-label">毎日</span>
+    </button>
+  </nav>
+
+  <!-- メインコンテンツ -->
+  <main class="main-content">
+
+    <!-- 今日のタスクタブ -->
+    <section id="tab-today" class="tab-panel active" role="tabpanel">
+      <!-- 空の背景演出 -->
+      <div class="sky-container" id="sky-container">
+        <div class="sky-bg" id="sky-bg"></div>
+        <div class="clouds-layer" id="clouds-layer">
+          <div class="cloud cloud-1"></div>
+          <div class="cloud cloud-2"></div>
+          <div class="cloud cloud-3"></div>
+        </div>
+        <div class="sun" id="sun"></div>
+        <div class="sky-info">
+          <div class="progress-label" id="progress-label">今日の達成率</div>
+          <div class="progress-percent" id="progress-percent">0%</div>
+          <div class="progress-bar-wrap">
+            <div class="progress-bar" id="progress-bar"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- タスクリスト -->
+      <div class="task-list-wrap">
+        <div class="task-list-header">
+          <span class="task-count" id="today-task-count">0件のタスク</span>
+          <button class="add-btn" id="btn-add-today" aria-label="タスクを追加">
+            ＋ タスクを追加
+          </button>
+        </div>
+        <ul class="task-list" id="today-task-list" role="list">
+          <!-- JSで描画 -->
+        </ul>
+        <div class="empty-state" id="today-empty" hidden>
+          <div class="empty-icon">🌤️</div>
+          <div class="empty-text">今日のタスクがありません<br>タスクを追加してみましょう！</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- やり残したことタブ -->
+    <section id="tab-leftover" class="tab-panel" role="tabpanel" hidden>
+      <div class="panel-header">
+        <h2 class="panel-title">🌧️ やり残したこと</h2>
+        <div class="panel-actions">
+          <button class="text-btn danger" id="btn-delete-selected-leftover" hidden>選択削除</button>
+          <button class="text-btn" id="btn-select-all-leftover">すべて選択</button>
+        </div>
+      </div>
+      <ul class="task-list leftover-list" id="leftover-task-list" role="list"></ul>
+      <div class="empty-state" id="leftover-empty" hidden>
+        <div class="empty-icon">✨</div>
+        <div class="empty-text">やり残しはありません！</div>
+      </div>
+    </section>
+
+    <!-- 明日以降のタスクタブ -->
+    <section id="tab-future" class="tab-panel" role="tabpanel" hidden>
+      <div class="panel-header">
+        <h2 class="panel-title">📅 明日以降のタスク</h2>
+        <button class="add-btn" id="btn-add-future">＋ タスクを追加</button>
+      </div>
+      <!-- カレンダー -->
+      <div class="calendar-wrap">
+        <div class="calendar-nav">
+          <button class="icon-btn" id="btn-cal-prev" aria-label="前月">＜</button>
+          <span class="calendar-month" id="calendar-month-label"></span>
+          <button class="icon-btn" id="btn-cal-next" aria-label="次月">＞</button>
+        </div>
+        <div class="calendar-grid" id="calendar-grid"></div>
+      </div>
+      <!-- 選択日のタスク一覧 -->
+      <div class="future-day-tasks" id="future-day-tasks" hidden>
+        <div class="future-day-header">
+          <span id="future-day-title"></span>
+          <button class="icon-btn" id="btn-close-future-day" aria-label="閉じる">✕</button>
+        </div>
+        <ul class="task-list" id="future-task-list" role="list"></ul>
+        <div class="empty-state" id="future-day-empty" hidden>
+          <div class="empty-icon">📋</div>
+          <div class="empty-text">この日のタスクはありません</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 毎日のタスクタブ -->
+    <section id="tab-daily" class="tab-panel" role="tabpanel" hidden>
+      <div class="panel-header">
+        <h2 class="panel-title">🔄 毎日のタスク</h2>
+      </div>
+
+      <div class="daily-sections">
+        <!-- 頑張る -->
+        <div class="daily-section">
+          <div class="daily-section-title">
+            <span class="badge badge-strict">頑張る</span>
+            <span class="daily-section-desc">1日でも欠けると連続リセット</span>
+          </div>
+          <ul class="task-list" id="daily-strict-list" role="list"></ul>
+          <div class="empty-state" id="daily-strict-empty" hidden>
+            <div class="empty-text">習慣がありません</div>
+          </div>
+        </div>
+
+        <!-- ゆるく頑張る -->
+        <div class="daily-section">
+          <div class="daily-section-title">
+            <span class="badge badge-loose">ゆるく頑張る</span>
+            <span class="daily-section-desc">3日以内の空白は継続扱い</span>
+          </div>
+          <ul class="task-list" id="daily-loose-list" role="list"></ul>
+          <div class="empty-state" id="daily-loose-empty" hidden>
+            <div class="empty-text">習慣がありません</div>
+          </div>
+        </div>
+
+        <!-- 追加ボタン（下部） -->
+        <div class="daily-add-wrap">
+          <button class="add-btn" id="btn-add-daily" style="width:100%;justify-content:center;">＋ 習慣を追加</button>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- 検索モーダル -->
+  <div id="modal-search" class="modal-overlay" hidden role="dialog" aria-modal="true" aria-labelledby="search-modal-title">
+    <div class="modal-sheet">
+      <div class="modal-header">
+        <h2 id="search-modal-title" class="modal-title">🔍 検索</h2>
+        <button class="icon-btn modal-close" data-modal="modal-search" aria-label="閉じる">✕</button>
+      </div>
+      <div class="search-wrap">
+        <input type="search" id="search-input" class="search-input" placeholder="タイトル・メモで検索..." autocomplete="off">
+        <div class="search-date-row">
+          <label class="search-label">日付</label>
+          <input type="date" id="search-date" class="input-field">
+          <button class="text-btn" id="btn-clear-search-date">クリア</button>
+        </div>
+      </div>
+      <ul class="task-list search-results" id="search-results" role="list"></ul>
+      <div class="empty-state" id="search-empty" hidden>
+        <div class="empty-icon">🔍</div>
+        <div class="empty-text">該当するタスクが見つかりません</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 統計モーダル -->
+  <div id="modal-stats" class="modal-overlay" hidden role="dialog" aria-modal="true" aria-labelledby="stats-modal-title">
+    <div class="modal-sheet">
+      <div class="modal-header">
+        <h2 id="stats-modal-title" class="modal-title">📊 達成統計</h2>
+        <button class="icon-btn modal-close" data-modal="modal-stats" aria-label="閉じる">✕</button>
+      </div>
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-label">今日</div>
+          <div class="stat-value" id="stat-today">—</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">今週</div>
+          <div class="stat-value" id="stat-week">—</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">今月</div>
+          <div class="stat-value" id="stat-month">—</div>
+        </div>
+      </div>
+      <div class="stats-detail" id="stats-detail"></div>
+    </div>
+  </div>
+
+  <!-- データ管理モーダル -->
+  <div id="modal-data" class="modal-overlay" hidden role="dialog" aria-modal="true" aria-labelledby="data-modal-title">
+    <div class="modal-sheet modal-sheet-sm">
+      <div class="modal-header">
+        <h2 id="data-modal-title" class="modal-title">⚙️ データ管理</h2>
+        <button class="icon-btn modal-close" data-modal="modal-data" aria-label="閉じる">✕</button>
+      </div>
+      <div class="data-body">
+        <div class="data-stats" id="data-stats"></div>
+        <button type="button" class="btn-primary data-btn" id="btn-export">⬇️ エクスポート（バックアップ保存）</button>
+        <button type="button" class="btn-secondary data-btn" id="btn-import">⬆️ インポート（ファイルから復元）</button>
+        <input type="file" id="import-file" accept="application/json,.json" hidden>
+        <div class="data-note">タスク・習慣・達成記録・カテゴリをまとめてJSONファイルに保存／復元できます。機種変更やバックアップにご利用ください。</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- インポート方法の確認モーダル -->
+  <div id="modal-import-confirm" class="modal-overlay" hidden role="dialog" aria-modal="true" aria-labelledby="import-confirm-title">
+    <div class="modal-sheet modal-sheet-sm">
+      <div class="modal-header">
+        <h2 id="import-confirm-title" class="modal-title">復元方法を選択</h2>
+        <button class="icon-btn modal-close" data-modal="modal-import-confirm" aria-label="閉じる">✕</button>
+      </div>
+      <div class="data-body">
+        <div class="data-stats" id="import-summary"></div>
+        <button type="button" class="btn-secondary data-btn" id="btn-import-merge">＋ 今のデータに追加（マージ）</button>
+        <button type="button" class="btn-danger data-btn" id="btn-import-replace">⚠️ すべて置き換えて復元</button>
+        <button type="button" class="btn-secondary data-btn" data-modal="modal-import-confirm">やめる</button>
+        <div class="data-note">「追加」は同じIDのデータだけ上書きし、残りは保持します。「置き換え」は今のタスク・習慣・記録を削除してから取り込みます。</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- タスク登録・編集モーダル -->
+  <div id="modal-task" class="modal-overlay" hidden role="dialog" aria-modal="true" aria-labelledby="task-modal-title">
+    <div class="modal-sheet modal-sheet-tall">
+      <div class="modal-header">
+        <h2 id="task-modal-title" class="modal-title">タスクを追加</h2>
+        <button class="icon-btn modal-close" data-modal="modal-task" aria-label="閉じる">✕</button>
+      </div>
+      <div class="form-body">
+        <input type="hidden" id="task-edit-id">
+        <input type="hidden" id="task-title">
+        <div class="form-group">
+          <label class="form-label" for="task-memo">内容 <span class="required">*</span></label>
+          <textarea id="task-memo" class="input-field textarea-field" placeholder="1行目がタイトルになります（改行後は詳細メモ）" rows="5" maxlength="600"></textarea>
+          <div class="form-hint">最初の行がタスク名として一覧に表示されます。改行した続きは、タップで開く詳細メモになります。</div>
+        </div>
+        <div class="form-row">
+          <div class="form-group flex-1">
+            <label class="form-label" for="task-date">日付</label>
+            <input type="date" id="task-date" class="input-field">
+          </div>
+          <div class="form-group flex-1">
+            <label class="form-label" for="task-time">時間</label>
+            <div class="time-input-wrap" id="time-input-trigger" role="button" tabindex="0" aria-label="時間を選択" aria-haspopup="dialog">
+              <span class="time-input-icon">🕐</span>
+              <span class="time-input-value" id="task-time-display">--:--</span>
+              <input type="hidden" id="task-time">
+              <button type="button" class="time-clear-btn" id="btn-clear-time" aria-label="時間をクリア" hidden>✕</button>
+            </div>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">カテゴリ</label>
+          <div class="category-chips" id="category-chips" role="group" aria-label="カテゴリ選択">
+            <!-- JSで動的生成 -->
+          </div>
+          <div style="display:flex;gap:8px;margin-top:8px;align-items:center;">
+            <input type="text" id="new-category-input" class="input-field" placeholder="新しいカテゴリ名" maxlength="20" style="flex:1;font-size:14px;padding:7px 10px;">
+            <button type="button" class="text-btn" id="btn-add-category">＋ 追加</button>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">通知</label>
+          <div id="notification-list" class="notification-list"></div>
+          <button type="button" class="text-btn" id="btn-add-notification">＋ 通知を追加</button>
+          <div class="notification-note">※ 通知はブラウザの許可が必要です</div>
+        </div>
+        <!-- 毎日タスク用オプション -->
+        <div id="daily-task-options" class="form-group" hidden>
+          <label class="form-label">習慣タイプ</label>
+          <div class="category-chips" role="group" aria-label="習慣タイプ選択">
+            <button type="button" class="chip chip-habit active" data-habit="strict">頑張る</button>
+            <button type="button" class="chip chip-habit" data-habit="loose">ゆるく頑張る</button>
+          </div>
+        </div>
+      </div>
+      <div class="form-footer">
+        <button type="button" class="btn-secondary" data-modal="modal-task">キャンセル</button>
+        <button type="button" class="btn-primary" id="btn-save-task">保存する</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 達成演出オーバーレイ -->
+  <div id="overlay-complete" class="complete-overlay" hidden aria-live="assertive">
+    <div class="complete-content">
+      <div class="complete-sun">☀️</div>
+      <div class="complete-title">🎉 全部完了！</div>
+      <div class="complete-message">今日もよく頑張りました！</div>
+      <button class="btn-primary complete-btn" id="btn-close-complete">ありがとう！</button>
+    </div>
+    <div class="confetti-wrap" id="confetti-wrap"></div>
+  </div>
+
+  <!-- カスタム タイムピッカー モーダル -->
+  <div id="modal-timepicker" class="tp-overlay" hidden role="dialog" aria-modal="true" aria-labelledby="tp-title">
+    <div class="tp-dialog">
+      <div class="tp-header">
+        <span class="tp-title" id="tp-title">時間を選択</span>
+        <div class="tp-time-display">
+          <span class="tp-h-display" id="tp-h-display">12</span>
+          <span class="tp-colon">:</span>
+          <span class="tp-m-display" id="tp-m-display">00</span>
+        </div>
+        <div class="tp-mode-tabs">
+          <button class="tp-mode-btn active" id="tp-tab-hour" data-mode="hour">時</button>
+          <button class="tp-mode-btn" id="tp-tab-min"  data-mode="minute">分</button>
+        </div>
+      </div>
+      <div class="tp-clock-wrap">
+        <div class="tp-clock" id="tp-clock">
+          <div class="tp-clock-center"></div>
+          <div class="tp-clock-hand" id="tp-clock-hand"></div>
+          <!-- 数字はJSで動的生成 -->
+        </div>
+      </div>
+      <div class="tp-footer">
+        <button type="button" class="tp-btn tp-btn-cancel" id="tp-btn-cancel">キャンセル</button>
+        <button type="button" class="tp-btn tp-btn-ok"     id="tp-btn-ok">OK（設定）</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js?v=20260625d"></script>
+</body>
+</html>

@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <radialGradient id="skyGrad" cx="50%" cy="30%" r="70%">
+      <stop offset="0%" stop-color="#42A5F5"/>
+      <stop offset="100%" stop-color="#0D47A1"/>
+    </radialGradient>
+    <radialGradient id="sunGrad" cx="50%" cy="40%" r="60%">
+      <stop offset="0%" stop-color="#FFF176"/>
+      <stop offset="100%" stop-color="#FFB300"/>
+    </radialGradient>
+  </defs>
+  <!-- 背景 -->
+  <rect width="512" height="512" rx="96" fill="url(#skyGrad)"/>
+  <!-- 太陽 -->
+  <circle cx="256" cy="200" r="90" fill="url(#sunGrad)" opacity="0.95"/>
+  <!-- 太陽の光 -->
+  <g stroke="#FFD54F" stroke-width="14" stroke-linecap="round" opacity="0.8">
+    <line x1="256" y1="68"  x2="256" y2="40"/>
+    <line x1="256" y1="332" x2="256" y2="360"/>
+    <line x1="124" y1="200" x2="96"  y2="200"/>
+    <line x1="388" y1="200" x2="416" y2="200"/>
+    <line x1="165" y1="109" x2="145" y2="89"/>
+    <line x1="347" y1="109" x2="367" y2="89"/>
+    <line x1="165" y1="291" x2="145" y2="311"/>
+    <line x1="347" y1="291" x2="367" y2="311"/>
+  </g>
+  <!-- 雲 -->
+  <g fill="white" opacity="0.90">
+    <ellipse cx="140" cy="370" rx="70" ry="36"/>
+    <ellipse cx="108" cy="362" rx="44" ry="44"/>
+    <ellipse cx="172" cy="358" rx="38" ry="38"/>
+    <ellipse cx="210" cy="370" rx="40" ry="30"/>
+  </g>
+  <!-- 水滴（タスクアイコン） -->
+  <g fill="white" opacity="0.95">
+    <path d="M310 300 Q310 260 350 240 Q390 260 390 300 Q390 340 350 355 Q310 340 310 300Z"/>
+    <path d="M360 320 Q360 290 390 275 Q420 290 420 320 Q420 350 390 362 Q360 350 360 320Z" opacity="0.7"/>
+  </g>
+  <!-- チェックマーク -->
+  <g stroke="#1976D2" stroke-width="18" stroke-linecap="round" stroke-linejoin="round" fill="none">
+    <polyline points="328,300 344,318 374,282"/>
+  </g>
+</svg>
