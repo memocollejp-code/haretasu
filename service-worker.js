@@ -7,10 +7,10 @@
 /* =============================================
    ★ バージョン管理
    更新時はここだけ変更する。CACHE_NAME は自動生成される。
-   例: 'haretasu-v1.0.1', 'haretasu-v2.0.0'
+   例: 'haretasu-v1.0.3', 'haretasu-v2.0.0'
    ============================================= */
-const SW_VERSION  = 'haretasu-v1.0.1';          // ← 更新時はここだけ変える
-const CACHE_NAME  = `cache-${SW_VERSION}`;       // 'cache-haretasu-v1.0.1'
+const SW_VERSION  = 'haretasu-v1.0.3';          // ← 更新時はここだけ変える
+const CACHE_NAME  = `cache-${SW_VERSION}`;       // 'cache-haretasu-v1.0.3'
 const CACHE_PREFIX = 'cache-haretasu-';          // 自分のキャッシュだけを削除対象にする
 
 const DB_NAME     = 'haretasu_db';
@@ -216,8 +216,8 @@ async function _showNotification(n) {
   try {
     await self.registration.showNotification(n.title, {
       body:    n.body,
-      icon:    './assets/icons/icon-192.png',
-      badge:   './assets/icons/icon-72.png',
+      icon:    './icon-192.png',
+      badge:   './icon-192.png',
       tag:     n.tag || n.id,
       vibrate: [200, 100, 200],
       data:    { url: './' },
@@ -280,8 +280,8 @@ self.addEventListener('push', (event) => {
   event.waitUntil(
     self.registration.showNotification(data.title || 'ハレタス', {
       body:    data.body || '',
-      icon:    './assets/icons/icon-192.png',
-      badge:   './assets/icons/icon-72.png',
+      icon:    './icon-192.png',
+      badge:   './icon-192.png',
       tag:     data.tag || 'haretasu-push',
       vibrate: [200, 100, 200],
       data:    { url: './' },

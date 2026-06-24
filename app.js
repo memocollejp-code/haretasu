@@ -967,6 +967,12 @@ function attachSwipe(cardEl, onComplete, onDelete) {
   const THRESHOLD = 72;
   const MAX_DRAG  = 110;
 
+  function reset() {
+    inner.style.transform = '';
+    bgRight.style.opacity = 0;
+    bgLeft.style.opacity  = 0;
+  }
+
   function onStart(e) {
     const pt = e.touches ? e.touches[0] : e;
     startX = pt.clientX;
@@ -980,11 +986,9 @@ function attachSwipe(cardEl, onComplete, onDelete) {
     const dx = pt.clientX - startX;
     const dy = pt.clientY - startY;
     if (!dragging && Math.abs(dy) > Math.abs(dx)) return; // 縦スクロール優先
-    if (Math.abs(dx) > 6) {
-      dragging = true;
-      e.preventDefault();
-    }
+    if (!dragging && Math.abs(dx) > 8) dragging = true;
     if (!dragging) return;
+    if (e.cancelable) e.preventDefault();
     curX = Math.max(-MAX_DRAG, Math.min(MAX_DRAG, dx));
     inner.style.transform = `translateX(${curX}px)`;
     if (curX > 0) {
@@ -997,21 +1001,33 @@ function attachSwipe(cardEl, onComplete, onDelete) {
   }
 
   function onEnd() {
-    if (!dragging) return;
-    inner.style.transform = '';
-    bgRight.style.opacity = 0;
-    bgLeft.style.opacity  = 0;
-    if (curX > THRESHOLD && onComplete) onComplete();
-    else if (curX < -THRESHOLD && onDelete) onDelete();
+    const moved = dragging ? curX : 0;
     dragging = false;
+    curX = 0;
+    reset();
+    if (moved > THRESHOLD && onComplete) onComplete();
+    else if (moved < -THRESHOLD && onDelete) onDelete();
   }
 
-  cardEl.addEventListener('touchstart', onStart, { passive: true });
-  cardEl.addEventListener('touchmove',  onMove,  { passive: false });
-  cardEl.addEventListener('touchend',   onEnd);
-  cardEl.addEventListener('mousedown',  onStart);
-  window.addEventListener('mousemove',  onMove);
-  window.addEventListener('mouseup',    onEnd);
+  // タッチはこのカードだけにバインド（他カードへ影響しない）
+  cardEl.addEventListener('touchstart',  onStart, { passive: true });
+  cardEl.addEventListener('touchmove',   onMove,  { passive: false });
+  cardEl.addEventListener('touchend',    onEnd);
+  cardEl.addEventListener('touchcancel', onEnd);
+
+  // マウスはドラッグ中だけ window に登録し、離したら必ず解除する
+  // （カード枚数ぶん window に残り続けると、無関係なイベントで誤発火する）
+  cardEl.addEventListener('mousedown', (e) => {
+    onStart(e);
+    const move = (ev) => onMove(ev);
+    const up = (ev) => {
+      onEnd(ev);
+      window.removeEventListener('mousemove', move);
+      window.removeEventListener('mouseup',   up);
+    };
+    window.addEventListener('mousemove', move);
+    window.addEventListener('mouseup',   up);
+  });
 }
 
 /* =============================================
