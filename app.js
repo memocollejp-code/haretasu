@@ -1163,26 +1163,33 @@ function escHtml(str) {
 
 /* クリップボードへコピー（API→フォールバックの二段構え） */
 async function copyText(text) {
+  // 1) 標準API（入力欄を使わないのでキーボードは出ない）
   try {
     if (navigator.clipboard && navigator.clipboard.writeText) {
       await navigator.clipboard.writeText(text);
       return true;
     }
   } catch (_) { /* フォールバックへ */ }
+  // 2) フォールバック：textarea/input にフォーカスするとキーボードと
+  //    クリップボード編集画面が出てしまうため、画面外の span を選択してコピーする
   try {
-    const ta = document.createElement('textarea');
-    ta.value = text;
-    ta.setAttribute('readonly', '');
-    ta.style.position = 'fixed';
-    ta.style.top = '-1000px';
-    ta.style.webkitUserSelect = 'text';
-    ta.style.userSelect = 'text';
-    document.body.appendChild(ta);
-    ta.focus();
-    ta.select();
-    ta.setSelectionRange(0, text.length);
+    const span = document.createElement('span');
+    span.textContent = text;
+    span.style.position = 'fixed';
+    span.style.left = '-9999px';
+    span.style.top = '0';
+    span.style.whiteSpace = 'pre';
+    span.style.webkitUserSelect = 'text';
+    span.style.userSelect = 'text';
+    document.body.appendChild(span);
+    const sel = window.getSelection();
+    const range = document.createRange();
+    range.selectNodeContents(span);
+    sel.removeAllRanges();
+    sel.addRange(range);
     const ok = document.execCommand('copy');
-    document.body.removeChild(ta);
+    sel.removeAllRanges();
+    document.body.removeChild(span);
     return ok;
   } catch (_) { return false; }
 }
