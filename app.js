@@ -1083,7 +1083,6 @@ function createTaskCard(task, options = {}) {
         ${task.memo ? `<div class="task-memo-text">${escHtml(task.memo)}</div>` : ''}
       </div>
       <div class="task-actions">
-        ${copyable ? '<button class="task-action-btn btn-copy" aria-label="コピー">📋</button>' : ''}
         <button class="task-action-btn btn-edit" aria-label="編集">✏️</button>
         <button class="task-action-btn btn-del"  aria-label="削除">🗑️</button>
       </div>
@@ -1116,34 +1115,36 @@ function createTaskCard(task, options = {}) {
   }
 
   // 長押しでコピー（today / future）
-  // コピーボタン（today / future）：タイトル＋メモを全部コピー
-  if (copyable) {
-    const copyBtn = li.querySelector('.btn-copy');
-    if (copyBtn) {
-      copyBtn.addEventListener('click', async (e) => {
-        e.stopPropagation();
-        const text = [task.title || '', task.memo || ''].filter(Boolean).join('\n');
-        const ok = await copyText(text);
-        try { if (navigator.vibrate) navigator.vibrate(15); } catch (_) {}
-        Toast.show(ok ? 'コピーしました 📋' : 'コピーできませんでした', ok ? 'success' : 'warn');
-      });
-    }
-  }
-
   // 並び替え（右端の「≡」ハンドルをドラッグ）
   if (reorderable) {
     li.classList.add('reorderable');
     attachReorder(li, li.querySelector('.task-drag-handle'), onReorderEnd);
   }
 
-  // 本文タップで全文を開閉（アコーディオン）
   if (task.memo) li.classList.add('has-more');
   const bodyEl = li.querySelector('.task-body');
-  if (bodyEl) {
-    bodyEl.addEventListener('click', () => {
-      if (li._suppressClick) { li._suppressClick = false; return; } // 長押しコピー直後の誤展開を防ぐ
-      li.classList.toggle('expanded');
-    });
+
+  if (copyable) {
+    // カードをタップ＝タイトル＋メモを全部コピー
+    if (bodyEl) {
+      bodyEl.addEventListener('click', async () => {
+        const text = [task.title || '', task.memo || ''].filter(Boolean).join('\n');
+        const ok = await copyText(text);
+        try { if (navigator.vibrate) navigator.vibrate(15); } catch (_) {}
+        Toast.show(ok ? 'コピーしました 📋' : 'コピーできませんでした', ok ? 'success' : 'warn');
+      });
+    }
+    // 全文の開閉は「▾」マークのタップで（コピーとは別操作）
+    const chevron = li.querySelector('.task-expand-chevron');
+    if (chevron) {
+      chevron.addEventListener('click', (e) => {
+        e.stopPropagation();          // コピーを発火させない
+        li.classList.toggle('expanded');
+      });
+    }
+  } else if (bodyEl) {
+    // コピー対象外のカード（やり残し・検索）は従来どおり本文タップで全文開閉
+    bodyEl.addEventListener('click', () => li.classList.toggle('expanded'));
   }
   // タイトルが折りたたみ行数に収まらない場合も「開ける」マークを出す
   requestAnimationFrame(() => {
@@ -1304,7 +1305,7 @@ const TodayTab = {
     if (hint && tasks.length > 0 && tasks.some(t => t.status !== 'done')) {
       const hintEl = document.createElement('div');
       hintEl.className = 'swipe-hint';
-      hintEl.textContent = 'スワイプで完了/削除・長押しでコピー・≡で並び替え';
+      hintEl.textContent = 'タップでコピー・▾で全文・スワイプで完了/削除・≡で並び替え';
       list.appendChild(hintEl);
     }
 
