@@ -481,6 +481,14 @@ a { text-decoration: none; color: inherit; }
 }
 .task-action-btn:active { background: #E0E0E0; }
 
+/* 長押しでブラウザ標準のテキスト選択・コンテキストメニュー（「デバイスに送信」等）を出さない */
+.task-card, .habit-card {
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
 /* === 並び替えハンドル === */
 .task-drag-handle {
   display: none;

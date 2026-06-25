@@ -546,6 +546,19 @@ const HabitStore = {
     await this.save(habit);
     return habit;
   },
+  /** 今日の達成を done(true/false) に明示的に合わせる（同期用） */
+  async setToday(id, done) {
+    const habit = await this.getById(id);
+    if (!habit) return;
+    if (!habit.completedDates) habit.completedDates = [];
+    const today = todayStr();
+    const idx = habit.completedDates.indexOf(today);
+    if (done && idx < 0) habit.completedDates.push(today);
+    if (!done && idx >= 0) habit.completedDates.splice(idx, 1);
+    habit.streak = this._calcStreak(habit);
+    await this.save(habit);
+    return habit;
+  },
   _calcStreak(habit) {
     const dates = [...(habit.completedDates || [])].sort().reverse();
     if (!dates.length) return 0;
@@ -1148,8 +1161,12 @@ async function copyText(text) {
     ta.setAttribute('readonly', '');
     ta.style.position = 'fixed';
     ta.style.top = '-1000px';
+    ta.style.webkitUserSelect = 'text';
+    ta.style.userSelect = 'text';
     document.body.appendChild(ta);
+    ta.focus();
     ta.select();
+    ta.setSelectionRange(0, text.length);
     const ok = document.execCommand('copy');
     document.body.removeChild(ta);
     return ok;
@@ -1185,6 +1202,8 @@ function attachLongPressCopy(li, task) {
   li.addEventListener('mousemove',  move);
   li.addEventListener('mouseup',    cancel);
   li.addEventListener('mouseleave', cancel);
+  // 長押しでコンテキストメニュー（「デバイスに送信」等）を出さない
+  li.addEventListener('contextmenu', (e) => e.preventDefault());
 }
 
 /* 「≡」ハンドルをドラッグして並び替え（未完了カードのみ） */
@@ -1398,6 +1417,10 @@ const TodayTab = {
     task.status    = task.status === 'done' ? 'pending' : 'done';
     task.updatedAt = Date.now();
     await TaskStore.save(task);
+    // 毎日タスクなら習慣（毎日タブ）側の今日の達成も同期する
+    if (task.type === 'daily') {
+      await HabitStore.setToday(id, task.status === 'done');
+    }
     Toast.show(task.status === 'done' ? '✅ 完了しました！' : '↩️ 未完了に戻しました', 'success');
     await this.render();
   },
@@ -1668,7 +1691,15 @@ const DailyTab = {
       `;
 
       li.querySelector(`[data-habit-toggle]`).addEventListener('click', async () => {
-        await HabitStore.toggleToday(habit.id);
+        const updated = await HabitStore.toggleToday(habit.id);
+        const nowDone = !!(updated && (updated.completedDates || []).includes(todayStr()));
+        // 同じIDの「今日のタスク」があれば完了状態を合わせる
+        const t = await TaskStore.getById(habit.id);
+        if (t && t.type === 'daily' && t.date === todayStr()) {
+          t.status    = nowDone ? 'done' : 'pending';
+          t.updatedAt = Date.now();
+          await TaskStore.save(t);
+        }
         Toast.show(isDone ? '↩️ 取り消しました' : '🎉 今日も達成！', isDone ? 'info' : 'success');
         await this.render();
       });
