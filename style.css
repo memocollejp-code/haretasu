@@ -487,6 +487,7 @@ a { text-decoration: none; color: inherit; }
   -moz-user-select: none;
   user-select: none;
   -webkit-touch-callout: none;
+  -webkit-user-drag: none;
 }
 
 /* === 並び替えハンドル === */

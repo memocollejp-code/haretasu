@@ -1052,7 +1052,7 @@ function createTaskCard(task, options = {}) {
     swipeComplete = false,
     swipeDelete   = false,
     reorderable   = false,
-    longPressCopy = false,
+    copyable      = false,
     onComplete, onDelete, onEdit, onReorderEnd,
   } = options;
 
@@ -1083,6 +1083,7 @@ function createTaskCard(task, options = {}) {
         ${task.memo ? `<div class="task-memo-text">${escHtml(task.memo)}</div>` : ''}
       </div>
       <div class="task-actions">
+        ${copyable ? '<button class="task-action-btn btn-copy" aria-label="コピー">📋</button>' : ''}
         <button class="task-action-btn btn-edit" aria-label="編集">✏️</button>
         <button class="task-action-btn btn-del"  aria-label="削除">🗑️</button>
       </div>
@@ -1115,7 +1116,19 @@ function createTaskCard(task, options = {}) {
   }
 
   // 長押しでコピー（today / future）
-  if (longPressCopy) attachLongPressCopy(li, task);
+  // コピーボタン（today / future）：タイトル＋メモを全部コピー
+  if (copyable) {
+    const copyBtn = li.querySelector('.btn-copy');
+    if (copyBtn) {
+      copyBtn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        const text = [task.title || '', task.memo || ''].filter(Boolean).join('\n');
+        const ok = await copyText(text);
+        try { if (navigator.vibrate) navigator.vibrate(15); } catch (_) {}
+        Toast.show(ok ? 'コピーしました 📋' : 'コピーできませんでした', ok ? 'success' : 'warn');
+      });
+    }
+  }
 
   // 並び替え（右端の「≡」ハンドルをドラッグ）
   if (reorderable) {
@@ -1173,38 +1186,7 @@ async function copyText(text) {
   } catch (_) { return false; }
 }
 
-/* カード長押しで本文をコピー */
-function attachLongPressCopy(li, task) {
-  let timer = null, sx = 0, sy = 0;
-  const start = (e) => {
-    const pt = e.touches ? e.touches[0] : e;
-    sx = pt.clientX; sy = pt.clientY;
-    clearTimeout(timer);
-    timer = setTimeout(async () => {
-      li._suppressClick = true;                 // 直後のタップ展開を抑制
-      setTimeout(() => { li._suppressClick = false; }, 600);
-      const text = [task.title || '', task.memo || ''].filter(Boolean).join('\n');
-      const ok = await copyText(text);
-      try { if (navigator.vibrate) navigator.vibrate(15); } catch (_) {}
-      Toast.show(ok ? 'コピーしました 📋' : 'コピーできませんでした', ok ? 'success' : 'warn');
-    }, 480);
-  };
-  const cancel = () => clearTimeout(timer);
-  const move = (e) => {
-    const pt = e.touches ? e.touches[0] : e;
-    if (Math.abs(pt.clientX - sx) > 8 || Math.abs(pt.clientY - sy) > 8) clearTimeout(timer);
-  };
-  li.addEventListener('touchstart', start, { passive: true });
-  li.addEventListener('touchend',   cancel);
-  li.addEventListener('touchcancel',cancel);
-  li.addEventListener('touchmove',  move, { passive: true });
-  li.addEventListener('mousedown',  start);
-  li.addEventListener('mousemove',  move);
-  li.addEventListener('mouseup',    cancel);
-  li.addEventListener('mouseleave', cancel);
-  // 長押しでコンテキストメニュー（「デバイスに送信」等）を出さない
-  li.addEventListener('contextmenu', (e) => e.preventDefault());
-}
+/* カード長押しで本文をコピー（廃止：コピーボタンに置き換え） */
 
 /* 「≡」ハンドルをドラッグして並び替え（未完了カードのみ） */
 function attachReorder(li, handle, onReorderEnd) {
@@ -1309,7 +1291,7 @@ const TodayTab = {
         swipeComplete: true,
         swipeDelete:   true,
         reorderable:   true,
-        longPressCopy: true,
+        copyable:      true,
         onComplete:   () => this._complete(task.id),
         onDelete:     () => this._delete(task.id),
         onEdit:       () => this._edit(task),
@@ -1593,7 +1575,7 @@ const FutureTab = {
 
     for (const task of tasks) {
       const card = createTaskCard(task, {
-        longPressCopy: true,
+        copyable:      true,
         onDelete: () => this._deleteTask(task.id),
         onEdit:   () => TaskModal.open('future', dateStr, task),
       });
@@ -2033,6 +2015,11 @@ const App = {
 
   async init() {
     await db.open();
+    // ブラウザ標準の長押しドラッグ／コンテキストメニュー（「デバイスに送信」等）を抑止
+    document.addEventListener('dragstart', (e) => e.preventDefault());
+    document.addEventListener('contextmenu', (e) => {
+      if (e.target.closest && e.target.closest('.task-card, .habit-card')) e.preventDefault();
+    });
     TimePicker._init();
     this._bindTabs();
     this._bindHeader();
