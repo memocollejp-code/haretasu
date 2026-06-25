@@ -481,6 +481,37 @@ a { text-decoration: none; color: inherit; }
 }
 .task-action-btn:active { background: #E0E0E0; }
 
+/* === 並び替えハンドル === */
+.task-drag-handle {
+  display: none;
+  align-self: stretch;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 28px;
+  padding: 0 4px;
+  font-size: 18px;
+  line-height: 1;
+  color: var(--color-sub);
+  opacity: 0.5;
+  cursor: grab;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: none;        /* ハンドル上のドラッグでページをスクロールさせない */
+}
+.task-card.reorderable:not(.completed) .task-drag-handle { display: flex; }
+.task-drag-handle:active { cursor: grabbing; opacity: 0.85; }
+
+/* ドラッグ中のカードを持ち上げて見せる */
+.task-card.reordering {
+  opacity: 0.95;
+  transform: scale(1.02);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.18);
+  position: relative;
+  z-index: 10;
+}
+.task-card.reordering .task-card-inner { transition: none; }
+
 /* スワイプヒント */
 .swipe-hint {
   font-size: 11px;

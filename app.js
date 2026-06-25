@@ -1038,7 +1038,9 @@ function createTaskCard(task, options = {}) {
     showDate = false,
     swipeComplete = false,
     swipeDelete   = false,
-    onComplete, onDelete, onEdit,
+    reorderable   = false,
+    longPressCopy = false,
+    onComplete, onDelete, onEdit, onReorderEnd,
   } = options;
 
   const li = document.createElement('li');
@@ -1071,6 +1073,7 @@ function createTaskCard(task, options = {}) {
         <button class="task-action-btn btn-edit" aria-label="編集">✏️</button>
         <button class="task-action-btn btn-del"  aria-label="削除">🗑️</button>
       </div>
+      ${reorderable ? '<div class="task-drag-handle" role="button" aria-label="長押しして並び替え">≡</div>' : ''}
     </div>
   `;
 
@@ -1098,11 +1101,21 @@ function createTaskCard(task, options = {}) {
     li.addEventListener('touchmove',  () => clearTimeout(lpTimer));
   }
 
+  // 長押しでコピー（today / future）
+  if (longPressCopy) attachLongPressCopy(li, task);
+
+  // 並び替え（右端の「≡」ハンドルをドラッグ）
+  if (reorderable) {
+    li.classList.add('reorderable');
+    attachReorder(li, li.querySelector('.task-drag-handle'), onReorderEnd);
+  }
+
   // 本文タップで全文を開閉（アコーディオン）
   if (task.memo) li.classList.add('has-more');
   const bodyEl = li.querySelector('.task-body');
   if (bodyEl) {
     bodyEl.addEventListener('click', () => {
+      if (li._suppressClick) { li._suppressClick = false; return; } // 長押しコピー直後の誤展開を防ぐ
       li.classList.toggle('expanded');
     });
   }
@@ -1121,6 +1134,120 @@ function escHtml(str) {
   return (str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
+/* クリップボードへコピー（API→フォールバックの二段構え） */
+async function copyText(text) {
+  try {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      await navigator.clipboard.writeText(text);
+      return true;
+    }
+  } catch (_) { /* フォールバックへ */ }
+  try {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.setAttribute('readonly', '');
+    ta.style.position = 'fixed';
+    ta.style.top = '-1000px';
+    document.body.appendChild(ta);
+    ta.select();
+    const ok = document.execCommand('copy');
+    document.body.removeChild(ta);
+    return ok;
+  } catch (_) { return false; }
+}
+
+/* カード長押しで本文をコピー */
+function attachLongPressCopy(li, task) {
+  let timer = null, sx = 0, sy = 0;
+  const start = (e) => {
+    const pt = e.touches ? e.touches[0] : e;
+    sx = pt.clientX; sy = pt.clientY;
+    clearTimeout(timer);
+    timer = setTimeout(async () => {
+      li._suppressClick = true;                 // 直後のタップ展開を抑制
+      setTimeout(() => { li._suppressClick = false; }, 600);
+      const text = [task.title || '', task.memo || ''].filter(Boolean).join('\n');
+      const ok = await copyText(text);
+      try { if (navigator.vibrate) navigator.vibrate(15); } catch (_) {}
+      Toast.show(ok ? 'コピーしました 📋' : 'コピーできませんでした', ok ? 'success' : 'warn');
+    }, 480);
+  };
+  const cancel = () => clearTimeout(timer);
+  const move = (e) => {
+    const pt = e.touches ? e.touches[0] : e;
+    if (Math.abs(pt.clientX - sx) > 8 || Math.abs(pt.clientY - sy) > 8) clearTimeout(timer);
+  };
+  li.addEventListener('touchstart', start, { passive: true });
+  li.addEventListener('touchend',   cancel);
+  li.addEventListener('touchcancel',cancel);
+  li.addEventListener('touchmove',  move, { passive: true });
+  li.addEventListener('mousedown',  start);
+  li.addEventListener('mousemove',  move);
+  li.addEventListener('mouseup',    cancel);
+  li.addEventListener('mouseleave', cancel);
+}
+
+/* 「≡」ハンドルをドラッグして並び替え（未完了カードのみ） */
+function attachReorder(li, handle, onReorderEnd) {
+  if (!handle) return;
+  let dragging = false, list = null, usingTouch = false;
+  const yOf = (e) => (e.touches ? e.touches[0].clientY : e.clientY);
+
+  const onMove = (e) => {
+    if (!dragging) return;
+    if (usingTouch) e.stopPropagation();        // カードのスワイプ/長押しに伝えない
+    if (e.cancelable) e.preventDefault();        // ドラッグ中はスクロールさせない
+    const y = yOf(e);
+    const cards = [...list.querySelectorAll('.task-card:not(.completed)')].filter(c => c !== li);
+    let before = null;
+    for (const c of cards) {
+      const r = c.getBoundingClientRect();
+      if (y < r.top + r.height / 2) { before = c; break; }
+    }
+    if (before) list.insertBefore(li, before);
+    else if (cards.length) cards[cards.length - 1].after(li);
+  };
+
+  const cleanup = () => {
+    handle.removeEventListener('touchmove',  onMove);
+    handle.removeEventListener('touchend',   onEnd);
+    handle.removeEventListener('touchcancel',onEnd);
+    document.removeEventListener('mousemove', onMove);
+    document.removeEventListener('mouseup',   onEnd);
+  };
+
+  async function onEnd(e) {
+    if (!dragging) return;
+    if (usingTouch && e) e.stopPropagation();
+    dragging = false;
+    li.classList.remove('reordering');
+    cleanup();
+    if (onReorderEnd) await onReorderEnd(list);
+  }
+
+  const onStart = (e) => {
+    e.stopPropagation();                          // カードのスワイプ/長押しを発火させない
+    if (e.cancelable) e.preventDefault();
+    list = li.parentElement;
+    if (!list) return;
+    usingTouch = !!e.touches;
+    dragging = true;
+    li.classList.add('reordering');
+    // タッチイベントは開始要素(ハンドル)に届き続けるのでハンドルに、マウスは document に紐付ける
+    if (usingTouch) {
+      handle.addEventListener('touchmove',  onMove, { passive: false });
+      handle.addEventListener('touchend',   onEnd);
+      handle.addEventListener('touchcancel',onEnd);
+    } else {
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup',   onEnd);
+    }
+  };
+
+  handle.addEventListener('touchstart', onStart, { passive: false });
+  handle.addEventListener('mousedown',  onStart);
+}
+
 /* =============================================
    今日のタスクタブ
    ============================================= */
@@ -1131,13 +1258,28 @@ const TodayTab = {
     const count = qs('#today-task-count');
     list.innerHTML = '';
 
-    const tasks = (await TaskStore.getTodayTasks())
-      .sort((a,b) => {
-        if (a.time && b.time) return a.time < b.time ? -1 : 1;
-        if (a.time) return -1;
-        if (b.time) return 1;
-        return a.createdAt - b.createdAt;
-      });
+    let tasks = await TaskStore.getTodayTasks();
+
+    // order 未設定のタスクに採番（初回は「時刻→作成順」を既定にし、以降は手動並びを保持）
+    const defaultSort = (a, b) => {
+      if (a.time && b.time) return a.time < b.time ? -1 : 1;
+      if (a.time) return -1;
+      if (b.time) return 1;
+      return (a.createdAt || 0) - (b.createdAt || 0);
+    };
+    const have = tasks.filter(t => typeof t.order === 'number');
+    const lack = tasks.filter(t => typeof t.order !== 'number').sort(defaultSort);
+    let maxOrder = have.length ? Math.max(...have.map(t => t.order)) : -1;
+    for (const t of lack) { t.order = ++maxOrder; await TaskStore.save(t); }
+    tasks = have.concat(lack);
+
+    // 表示順：未完了 → 完了（完了は常に下）、各グループ内は order 順
+    tasks.sort((a, b) => {
+      const ra = a.status === 'done' ? 1 : 0;
+      const rb = b.status === 'done' ? 1 : 0;
+      if (ra !== rb) return ra - rb;
+      return (a.order || 0) - (b.order || 0);
+    });
 
     count.textContent = `${tasks.length}件のタスク`;
     empty.hidden = tasks.length > 0;
@@ -1147,9 +1289,12 @@ const TodayTab = {
       const card = createTaskCard(task, {
         swipeComplete: true,
         swipeDelete:   true,
-        onComplete: () => this._complete(task.id),
-        onDelete:   () => this._delete(task.id),
-        onEdit:     () => this._edit(task),
+        reorderable:   true,
+        longPressCopy: true,
+        onComplete:   () => this._complete(task.id),
+        onDelete:     () => this._delete(task.id),
+        onEdit:       () => this._edit(task),
+        onReorderEnd: (listEl) => this._persistOrder(listEl),
       });
       list.appendChild(card);
       if (!hint && task.status !== 'done') hint = true;
@@ -1158,7 +1303,7 @@ const TodayTab = {
     if (hint && tasks.length > 0 && tasks.some(t => t.status !== 'done')) {
       const hintEl = document.createElement('div');
       hintEl.className = 'swipe-hint';
-      hintEl.textContent = '← スワイプで削除　完了でスワイプ →';
+      hintEl.textContent = 'スワイプで完了/削除・長押しでコピー・≡で並び替え';
       list.appendChild(hintEl);
     }
 
@@ -1167,6 +1312,16 @@ const TodayTab = {
       tasks.length,
       tasks.filter(t => t.status === 'done').length
     );
+  },
+
+  // 並び替え確定：DOM の並び順を order として保存して再描画
+  async _persistOrder(listEl) {
+    const ids = [...listEl.querySelectorAll('.task-card')].map(c => c.dataset.id);
+    for (let i = 0; i < ids.length; i++) {
+      const t = await TaskStore.getById(ids[i]);
+      if (t) { t.order = i; await TaskStore.save(t); }
+    }
+    await this.render();
   },
 
   _updateSky(tasks) {
@@ -1415,6 +1570,7 @@ const FutureTab = {
 
     for (const task of tasks) {
       const card = createTaskCard(task, {
+        longPressCopy: true,
         onDelete: () => this._deleteTask(task.id),
         onEdit:   () => TaskModal.open('future', dateStr, task),
       });

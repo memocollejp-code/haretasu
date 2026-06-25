@@ -7,10 +7,10 @@
 /* =============================================
    ★ バージョン管理
    更新時はここだけ変更する。CACHE_NAME は自動生成される。
-   例: 'haretasu-v1.0.3', 'haretasu-v2.0.0'
+   例: 'haretasu-v1.0.4', 'haretasu-v2.0.0'
    ============================================= */
-const SW_VERSION  = 'haretasu-v1.0.3';          // ← 更新時はここだけ変える
-const CACHE_NAME  = `cache-${SW_VERSION}`;       // 'cache-haretasu-v1.0.3'
+const SW_VERSION  = 'haretasu-v1.0.4';          // ← 更新時はここだけ変える
+const CACHE_NAME  = `cache-${SW_VERSION}`;       // 'cache-haretasu-v1.0.4'
 const CACHE_PREFIX = 'cache-haretasu-';          // 自分のキャッシュだけを削除対象にする
 
 const DB_NAME     = 'haretasu_db';
